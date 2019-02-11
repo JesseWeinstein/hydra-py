@@ -101,7 +101,7 @@ def done_loading():
 
 def update_url_window(thing):
     url_window.clear()
-    url_window.resize(1, len(thing) + 1)
+    url_window.bkgd(ord(' '))
     url_window.addstr(0,0, thing)
     url_window.refresh()
 
@@ -114,9 +114,8 @@ def main(s):
     except curses.error:
         pass
     s.clear()
-    s.border()
     s.addstr("Wikidata Subclasses", curses.A_BOLD)
-    url_window = curses.newwin(1,2,s.getmaxyx()[0]-1,2)
+    url_window = curses.newwin(1, s.getmaxyx()[1]-4, s.getmaxyx()[0]-1, 2)
     s.refresh()
     start_loading()
     g.open('https://query.wikidata.org/bigdata/ldf')
