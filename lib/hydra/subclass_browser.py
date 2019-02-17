@@ -83,6 +83,12 @@ class Entry:
                 self.window.border(0,0,0,0,'+','+','+','+')
             else:
                 self.window.border()
+            # for n in range(1, 10):
+            #     try:
+            #         self.window.addstr(n,0,str(n))
+            #     except curses.error:
+            #         pass
+
             self.window.addstr(0,0, ci, curses.A_BOLD if self.all_loaded else curses.A_NORMAL)
             update_url_window(self.children[self.idx].wd if self.idx > -1 else '***')
             for idx, e in enumerate(self.children):
@@ -104,6 +110,9 @@ def setup():
     stdscr.clear()
     stdscr.border()
     stdscr.addstr(0,0, "Wikidata Subclasses", curses.A_BOLD)
+    # for n in range(1, 10):
+    #     stdscr.addstr(n,0,str(n))
+
     stdscr.refresh()
     url_window.resize(1, mx-4)
     url_window.mvwin(my-1, 2)
@@ -133,29 +142,33 @@ def main(s):
     WDT=Namespace(g.store.namespace('wdt'))
 
     active = Entry(sys.argv[1] if len(sys.argv)>1 else 'Q35120')
-    active.load(1,1)
+    active.load(0,1)
     while 1:
         setup()
         my, mx=stdscr.getmaxyx()
+        # stdscr.addstr(0, 20, str((y,x)))
+        # stdscr.addstr(0, 30, str(y-active.y - active.idx + my))
+
         pad.refresh(y, x, 1, 1, my-2, mx-2)    
         c = stdscr.getch()
         if c == curses.KEY_UP:
             active.adjust_current(-1)
-            if y -active.y - active.idx < 2 :
-                y += -1
         elif c == curses.KEY_DOWN:
             active.adjust_current(+1)
-        elif c == curses.KEY_RIGHT:
-            active = active.open_current()
         elif c == curses.KEY_LEFT:
             active = active.move_to_parent()
-        elif c == ord('e') and y >= 0: # up
+        elif c == curses.KEY_RIGHT:
+            active = active.open_current()
+
+        qy = y - active.y - active.idx # distance from active to top
+        qmy = qy + my - 2 # distance from active to bottom
+        if c == ord('e') or (c == curses.KEY_UP and (qy == 1 or qy == 2)) and y > 0: # up
             y += -1
-        elif c == ord('s') and x >= 0: # <-
-            x += -1
-        elif c == ord('d') and y <= mpady: # down
+        elif c == ord('d') or (c == curses.KEY_DOWN and (qmy == 1 or qmy == 2)) and y < mpady: # down
             y += 1
-        elif c == ord('f') and x <= mpadx: # ->
+        elif c == ord('s') and x > 0: # <-
+            x += -1
+        elif c == ord('f') and x < mpadx: # ->
             x += 1
         elif c == ord('q'):
             break
