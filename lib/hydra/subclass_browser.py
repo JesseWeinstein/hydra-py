@@ -25,10 +25,9 @@ class Entry:
         self.x = x
         self.is_active = True
         if not self.window:
-            self.window = curses.newwin(3, 2, self.y, self.x)
+            self.window = pad.subwin(3, 2, self.y, self.x)
             self.adjust_current(+1)
         else:
-            self.window.mvwin(self.y, self.x)
             self.redisplay()
         return self
 
@@ -45,9 +44,9 @@ class Entry:
             return new
 
     def move_to_parent(self):
-        self.is_active = False
-        self.redisplay()
         if self.parent:
+            self.is_active = False
+            self.redisplay()
             self.parent.is_active = True
             self.parent.redisplay()
             return self.parent
@@ -67,7 +66,6 @@ class Entry:
                 except StopIteration:
                     self.all_loaded = True
                     self.idx = len(self.children)-1
-                done_loading()
         self.redisplay()
     def redisplay(self):
         if not self.children:
@@ -89,55 +87,79 @@ class Entry:
             update_url_window(self.children[self.idx].wd if self.idx > -1 else '***')
             for idx, e in enumerate(self.children):
                 self.window.addstr(idx+1, 1, e.label, curses.A_BOLD if idx == self.idx else curses.A_NORMAL)
-        self.window.refresh()
 
 def start_loading():
-    stdscr.addstr(0, stdscr.getmaxyx()[1]-1, '*')
-    stdscr.refresh()
-
-def done_loading():
-    stdscr.addch(0, stdscr.getmaxyx()[1]-1, curses.ACS_URCORNER)
-    stdscr.refresh()
+    update_url_window('Loading...')
 
 def update_url_window(thing):
     url_window.clear()
-    url_window.bkgd(ord(' '))
-    url_window.addstr(0,0, thing)
+    try:
+        url_window.addstr(0,1, thing)
+    except curses.error:
+        pass # may fail if the window is too small
     url_window.refresh()
 
+def setup():
+    my, mx=stdscr.getmaxyx()
+    stdscr.clear()
+    stdscr.border()
+    stdscr.addstr(0,0, "Wikidata Subclasses", curses.A_BOLD)
+    stdscr.refresh()
+    url_window.resize(1, mx-4)
+    url_window.mvwin(my-1, 2)
+    url_window.refresh()
+    stdscr.move(0,0)
+
 def main(s):
-    global WD, WDT, stdscr, url_window
+    global WD, WDT, stdscr, url_window, pad
     stdscr = s
     try:
-        s.leaveok(0)
+        stdscr.leaveok(0)
         curses.curs_set(0)
     except curses.error:
         pass
-    s.clear()
-    s.addstr("Wikidata Subclasses", curses.A_BOLD)
-    url_window = curses.newwin(1, s.getmaxyx()[1]-4, s.getmaxyx()[0]-1, 2)
-    s.refresh()
+    url_window = curses.newwin(1, 1, 1, 2)
+
+    mpady, mpadx = (500,500)
+    y, x = (0, 0)
+    pad = curses.newpad(mpady, mpadx)
+
+    setup()
+
     start_loading()
     g.open('https://query.wikidata.org/bigdata/ldf')
+
     WD=Namespace(g.store.namespace('wd'))
     WDT=Namespace(g.store.namespace('wdt'))
 
     active = Entry(sys.argv[1] if len(sys.argv)>1 else 'Q35120')
     active.load(1,1)
-    done_loading()
     while 1:
-        s.move(0,0)
-        c = s.getch()
+        setup()
+        my, mx=stdscr.getmaxyx()
+        pad.refresh(y, x, 1, 1, my-2, mx-2)    
+        c = stdscr.getch()
         if c == curses.KEY_UP:
             active.adjust_current(-1)
+            if y -active.y - active.idx < 2 :
+                y += -1
         elif c == curses.KEY_DOWN:
             active.adjust_current(+1)
         elif c == curses.KEY_RIGHT:
             active = active.open_current()
         elif c == curses.KEY_LEFT:
             active = active.move_to_parent()
+        elif c == ord('e') and y >= 0: # up
+            y += -1
+        elif c == ord('s') and x >= 0: # <-
+            x += -1
+        elif c == ord('d') and y <= mpady: # down
+            y += 1
+        elif c == ord('f') and x <= mpadx: # ->
+            x += 1
         elif c == ord('q'):
             break
+
 
 if __name__ == '__main__':
     curses.wrapper(main)
@@ -150,5 +172,3 @@ Up/down arrow selects current entry; if down pressed at end, more loaded.
 Right arrow loads subclasses of current entry, inserted, indented, after current entry
 Left arrow jumps to parent of current entry (only if loaded)
 """
-
-
